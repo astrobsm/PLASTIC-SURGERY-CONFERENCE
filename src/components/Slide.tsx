@@ -1,7 +1,14 @@
-import React, { useMemo, useRef, useCallback } from 'react';
-import type { SlideData } from '../types';
+import React, { useMemo, useRef, useCallback, useState } from 'react';
+import type { SlideData, ImageStyle } from '../types';
 
 const INSTITUTION_HEADER = 'Burns, Plastic & Reconstructive Surgery Unit, Department of Surgery, UNTH Ituku Ozalla.';
+
+const DEFAULT_IMAGE_STYLE: ImageStyle = {
+  objectFit: 'contain',
+  scale: 1,
+  offsetX: 0,
+  offsetY: 0,
+};
 
 interface SlideProps {
   slide: SlideData;
@@ -26,9 +33,27 @@ const UploadIcon: React.FC = () => (
   </svg>
 );
 
+/** Edit / crop icon */
+const EditIcon: React.FC = () => (
+  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" width="18" height="18">
+    <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3.744h-3.5a1.5 1.5 0 0 0-1.5 1.5v3.5m0 6.5v3.5a1.5 1.5 0 0 0 1.5 1.5h3.5m6.5 0h3.5a1.5 1.5 0 0 0 1.5-1.5v-3.5m0-6.5v-3.5a1.5 1.5 0 0 0-1.5-1.5h-3.5" />
+  </svg>
+);
+
 const Slide: React.FC<SlideProps> = ({ slide, slideIndex, totalSlides, animationClass, onShowCitations, onUpdateSlide }) => {
   const isImageLeft = slide.layout_hint === 'image-left';
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // ── Image editor state ──
+  const [showEditor, setShowEditor] = useState(false);
+  const imgStyle = slide.imageStyle ?? DEFAULT_IMAGE_STYLE;
+  const isDragging = useRef(false);
+  const dragStart = useRef({ x: 0, y: 0, ox: 0, oy: 0 });
+  const panelRef = useRef<HTMLDivElement>(null);
+
+  const updateImageStyle = useCallback((patch: Partial<ImageStyle>) => {
+    onUpdateSlide({ imageStyle: { ...imgStyle, ...patch } });
+  }, [imgStyle, onUpdateSlide]);
 
   const confidenceColor = useMemo(() => {
     switch (slide.evidence_confidence) {
@@ -48,7 +73,11 @@ const Slide: React.FC<SlideProps> = ({ slide, slideIndex, totalSlides, animation
     if (!file.type.startsWith('image/')) return;
     const reader = new FileReader();
     reader.onload = () => {
-      onUpdateSlide({ image_alt: file.name, image_queries: [reader.result as string] });
+      onUpdateSlide({
+        image_alt: file.name,
+        image_queries: [reader.result as string],
+        imageStyle: { ...DEFAULT_IMAGE_STYLE },
+      });
     };
     reader.readAsDataURL(file);
   }, [onUpdateSlide]);
@@ -70,12 +99,48 @@ const Slide: React.FC<SlideProps> = ({ slide, slideIndex, totalSlides, animation
     }
   }, [slide.bullets, onUpdateSlide]);
 
+  // ── Drag-to-reposition handlers ──
+  const handlePointerDown = useCallback((e: React.PointerEvent) => {
+    if (!showEditor) return;
+    isDragging.current = true;
+    dragStart.current = { x: e.clientX, y: e.clientY, ox: imgStyle.offsetX, oy: imgStyle.offsetY };
+    (e.target as HTMLElement).setPointerCapture(e.pointerId);
+  }, [showEditor, imgStyle.offsetX, imgStyle.offsetY]);
+
+  const handlePointerMove = useCallback((e: React.PointerEvent) => {
+    if (!isDragging.current || !panelRef.current) return;
+    const rect = panelRef.current.getBoundingClientRect();
+    const dx = ((e.clientX - dragStart.current.x) / rect.width) * 100;
+    const dy = ((e.clientY - dragStart.current.y) / rect.height) * 100;
+    updateImageStyle({
+      offsetX: Math.max(-50, Math.min(50, dragStart.current.ox + dx)),
+      offsetY: Math.max(-50, Math.min(50, dragStart.current.oy + dy)),
+    });
+  }, [updateImageStyle]);
+
+  const handlePointerUp = useCallback(() => {
+    isDragging.current = false;
+  }, []);
+
   // Check if we have an uploaded image (data URL or http URL)
   const hasImage = slide.image_queries?.[0]?.startsWith('data:') || slide.image_queries?.[0]?.startsWith('http');
 
+  /** Compute inline style for the image */
+  const imageInlineStyle: React.CSSProperties = {
+    objectFit: imgStyle.objectFit,
+    transform: `scale(${imgStyle.scale}) translate(${imgStyle.offsetX}%, ${imgStyle.offsetY}%)`,
+    cursor: showEditor ? 'grab' : 'default',
+    transition: isDragging.current ? 'none' : 'transform 0.2s ease',
+  };
+
   /** Render the image panel */
   const imagePanel = (
-    <div className="slide-image-panel murphy-image" role="img" aria-label={slide.image_alt}>
+    <div
+      className="slide-image-panel murphy-image"
+      role="img"
+      aria-label={slide.image_alt}
+      ref={panelRef}
+    >
       {/* ── Institutional Header ── */}
       <div className="image-panel-header">
         <span>{INSTITUTION_HEADER}</span>
@@ -86,8 +151,13 @@ const Slide: React.FC<SlideProps> = ({ slide, slideIndex, totalSlides, animation
         <img
           src={slide.image_queries[0]}
           alt={slide.image_alt}
-          className="w-full h-full object-cover"
+          className="slide-image-display"
+          style={imageInlineStyle}
           loading="lazy"
+          draggable={false}
+          onPointerDown={handlePointerDown}
+          onPointerMove={handlePointerMove}
+          onPointerUp={handlePointerUp}
         />
       ) : (
         /* Show placeholder with upload prompt */
@@ -99,16 +169,78 @@ const Slide: React.FC<SlideProps> = ({ slide, slideIndex, totalSlides, animation
         </div>
       )}
 
-      {/* Upload button overlay */}
-      <button
-        className="image-upload-btn"
-        onClick={() => fileInputRef.current?.click()}
-        aria-label="Upload image for this slide"
-        title="Upload or change image"
-      >
-        <UploadIcon />
-        <span>{hasImage ? 'Change' : 'Upload'}</span>
-      </button>
+      {/* ── Image Editor Toolbar ── */}
+      {hasImage && showEditor && (
+        <div className="image-editor-toolbar" onClick={(e) => e.stopPropagation()}>
+          {/* Fit mode buttons */}
+          <div className="editor-row">
+            <span className="editor-label">Fit</span>
+            <div className="editor-btn-group">
+              {(['contain', 'cover', 'fill'] as const).map((mode) => (
+                <button
+                  key={mode}
+                  className={`editor-mode-btn ${imgStyle.objectFit === mode ? 'active' : ''}`}
+                  onClick={() => updateImageStyle({ objectFit: mode })}
+                  title={mode}
+                >
+                  {mode.charAt(0).toUpperCase() + mode.slice(1)}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Scale slider */}
+          <div className="editor-row">
+            <span className="editor-label">Size</span>
+            <input
+              type="range"
+              min="0.3"
+              max="3"
+              step="0.05"
+              value={imgStyle.scale}
+              onChange={(e) => updateImageStyle({ scale: parseFloat(e.target.value) })}
+              className="editor-slider"
+            />
+            <span className="editor-value">{Math.round(imgStyle.scale * 100)}%</span>
+          </div>
+
+          {/* Position hint */}
+          <div className="editor-row">
+            <span className="editor-label-hint">Drag image to reposition</span>
+            <button
+              className="editor-reset-btn"
+              onClick={() => onUpdateSlide({ imageStyle: { ...DEFAULT_IMAGE_STYLE } })}
+              title="Reset to defaults"
+            >
+              Reset
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Action buttons overlay */}
+      <div className="image-action-buttons">
+        <button
+          className="image-upload-btn"
+          onClick={() => fileInputRef.current?.click()}
+          aria-label="Upload image for this slide"
+          title="Upload or change image"
+        >
+          <UploadIcon />
+          <span>{hasImage ? 'Change' : 'Upload'}</span>
+        </button>
+        {hasImage && (
+          <button
+            className={`image-edit-btn ${showEditor ? 'active' : ''}`}
+            onClick={() => setShowEditor((v) => !v)}
+            aria-label="Edit image size and crop"
+            title="Edit size & crop"
+          >
+            <EditIcon />
+            <span>{showEditor ? 'Done' : 'Edit'}</span>
+          </button>
+        )}
+      </div>
       <input
         ref={fileInputRef}
         type="file"

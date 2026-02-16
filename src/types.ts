@@ -6,6 +6,13 @@ export type EvidenceConfidence = 'high' | 'medium' | 'low';
 
 export type LayoutHint = 'image-left' | 'image-right';
 
+export interface ImageStyle {
+  objectFit: 'contain' | 'cover' | 'fill';
+  scale: number;     // 0.5 – 3
+  offsetX: number;   // percentage shift
+  offsetY: number;   // percentage shift
+}
+
 export interface Citation {
   id: string;           // PMID or DOI
   type: 'pmid' | 'doi';
@@ -28,6 +35,7 @@ export interface SlideData {
   evidence_confidence: EvidenceConfidence;
   exportable_graphics: boolean;
   image_alt: string;
+  imageStyle?: ImageStyle;
   link?: string;
   last_updated?: string;
   reviewed_by?: string;
