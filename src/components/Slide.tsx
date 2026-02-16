@@ -141,11 +141,6 @@ const Slide: React.FC<SlideProps> = ({ slide, slideIndex, totalSlides, animation
       aria-label={slide.image_alt}
       ref={panelRef}
     >
-      {/* ── Institutional Header ── */}
-      <div className="image-panel-header">
-        <span>{INSTITUTION_HEADER}</span>
-      </div>
-
       {hasImage ? (
         /* Show uploaded / linked image */
         <img
@@ -255,6 +250,11 @@ const Slide: React.FC<SlideProps> = ({ slide, slideIndex, totalSlides, animation
   /** Render the text panel */
   const textPanel = (
     <div className="slide-text-panel murphy-text">
+      {/* ── Institutional Header ── */}
+      <div className="text-panel-header">
+        <span>{INSTITUTION_HEADER}</span>
+      </div>
+
       {/* Evidence badge */}
       {!isCover && slide.evidence_confidence && (
         <div className="mb-3">
