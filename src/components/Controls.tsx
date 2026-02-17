@@ -12,7 +12,9 @@ interface ControlsProps {
   onAddSlide: () => void;
   onDuplicateSlide: () => void;
   onDeleteSlide: () => void;
+  onToggleFullscreen: () => void;
   autoplay: boolean;
+  isFullscreen: boolean;
   isFirst: boolean;
   isLast: boolean;
   showNotes: boolean;
@@ -31,7 +33,9 @@ const Controls: React.FC<ControlsProps> = ({
   onAddSlide,
   onDuplicateSlide,
   onDeleteSlide,
+  onToggleFullscreen,
   autoplay,
+  isFullscreen,
   isFirst,
   isLast,
   showNotes,
@@ -143,6 +147,24 @@ const Controls: React.FC<ControlsProps> = ({
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
           <path d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
         </svg>
+      </button>
+
+      {/* Fullscreen */}
+      <button
+        onClick={onToggleFullscreen}
+        aria-label={isFullscreen ? 'Exit fullscreen' : 'Enter fullscreen'}
+        title={isFullscreen ? 'Exit fullscreen (F)' : 'Fullscreen (F)'}
+        style={{ background: isFullscreen ? '#0b8a3e' : undefined, color: isFullscreen ? 'white' : undefined }}
+      >
+        {isFullscreen ? (
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M8 3v3a2 2 0 01-2 2H3m18 0h-3a2 2 0 01-2-2V3m0 18v-3a2 2 0 012-2h3M3 16h3a2 2 0 012 2v3" />
+          </svg>
+        ) : (
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M8 3H5a2 2 0 00-2 2v3m18 0V5a2 2 0 00-2-2h-3m0 18h3a2 2 0 002-2v-3M3 16v3a2 2 0 002 2h3" />
+          </svg>
+        )}
       </button>
 
       {/* ── Divider ── */}

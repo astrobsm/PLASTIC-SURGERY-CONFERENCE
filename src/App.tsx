@@ -11,8 +11,29 @@ import { fetchCitationsForSlide } from './services/pubmed';
 import { exportToPDF } from './services/pdfExport';
 import type { SlideData } from './types';
 
+/** Split slides with more than `max` bullets into continuation slides */
+function splitSlidesMaxBullets(inputSlides: SlideData[], max = 3): SlideData[] {
+  const result: SlideData[] = [];
+  for (const slide of inputSlides) {
+    if (slide.bullets.length <= max) {
+      result.push(slide);
+    } else {
+      const totalParts = Math.ceil(slide.bullets.length / max);
+      for (let p = 0; p < totalParts; p++) {
+        result.push({
+          ...slide,
+          slide_id: p === 0 ? slide.slide_id : `${slide.slide_id}_pt${p + 1}`,
+          title: p === 0 ? slide.title : `${slide.title} (cont'd)`,
+          bullets: slide.bullets.slice(p * max, (p + 1) * max),
+        });
+      }
+    }
+  }
+  return result;
+}
+
 function App() {
-  const [slides, setSlides] = useState<SlideData[]>(defaultSlides);
+  const [slides, setSlides] = useState<SlideData[]>(() => splitSlidesMaxBullets(defaultSlides));
   const [currentSlide, setCurrentSlide] = useState(0);
   const [animationClass, setAnimationClass] = useState('slide-enter-next');
   const [showNotes, setShowNotes] = useState(false);
@@ -23,13 +44,14 @@ function App() {
   const [lastUpdated, setLastUpdated] = useState<string | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const autoplayRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [isFullscreen, setIsFullscreen] = useState(false);
   const slideRef = useRef<number>(currentSlide);
 
   // Keep ref in sync
   slideRef.current = currentSlide;
 
   // ── Content version (bump when slide data changes) ──
-  const CONTENT_VERSION = 'v3';
+  const CONTENT_VERSION = 'v4';
 
   // ── Load cached slides on mount ──
   useEffect(() => {
@@ -37,11 +59,12 @@ function App() {
       try {
         const cached = await getCachedSlides();
         const cachedVersion = localStorage.getItem('dfu-content-version');
-        if (cached.length === defaultSlides.length && cachedVersion === CONTENT_VERSION) {
+        if (cached.length > 0 && cachedVersion === CONTENT_VERSION) {
           setSlides(cached);
         } else {
-          // Cache is stale — re-cache from defaults
-          await cacheSlides(defaultSlides);
+          const split = splitSlidesMaxBullets(defaultSlides);
+          setSlides(split);
+          await cacheSlides(split);
           localStorage.setItem('dfu-content-version', CONTENT_VERSION);
         }
         const ts = await getLastUpdated();
@@ -66,6 +89,21 @@ function App() {
   const goPrev = useCallback(() => {
     if (slideRef.current > 0) goTo(slideRef.current - 1, 'prev');
   }, [goTo]);
+
+  // ── Fullscreen ──
+  const toggleFullscreen = useCallback(() => {
+    if (!document.fullscreenElement) {
+      document.documentElement.requestFullscreen().catch(() => {});
+    } else {
+      document.exitFullscreen().catch(() => {});
+    }
+  }, []);
+
+  useEffect(() => {
+    const onFsChange = () => setIsFullscreen(!!document.fullscreenElement);
+    document.addEventListener('fullscreenchange', onFsChange);
+    return () => document.removeEventListener('fullscreenchange', onFsChange);
+  }, []);
 
   // ── Keyboard navigation ──
   useEffect(() => {
@@ -100,6 +138,10 @@ function App() {
         case 'Q':
           setShowQuiz((v) => !v);
           break;
+        case 'f':
+        case 'F':
+          toggleFullscreen();
+          break;
         case 'Escape':
           setShowJump(false);
           setShowCitations(false);
@@ -117,7 +159,7 @@ function App() {
     };
     window.addEventListener('keydown', handleKey);
     return () => window.removeEventListener('keydown', handleKey);
-  }, [goNext, goPrev, goTo, slides.length]);
+  }, [goNext, goPrev, goTo, slides.length, toggleFullscreen]);
 
   // ── Autoplay ──
   useEffect(() => {
@@ -269,6 +311,13 @@ function App() {
       {/* Speaker notes */}
       <SpeakerNotes notes={slide.speaker_notes} visible={showNotes} />
 
+      {/* Exit fullscreen button */}
+      {isFullscreen && (
+        <button className="exit-fullscreen-btn" onClick={toggleFullscreen} title="Exit Fullscreen (Esc / F)">
+          ✕ Exit
+        </button>
+      )}
+
       {/* Controls */}
       <Controls
         onPrev={goPrev}
@@ -282,7 +331,9 @@ function App() {
         onAddSlide={handleAddSlide}
         onDuplicateSlide={handleDuplicateSlide}
         onDeleteSlide={handleDeleteSlide}
+        onToggleFullscreen={toggleFullscreen}
         autoplay={autoplay}
+        isFullscreen={isFullscreen}
         isFirst={currentSlide === 0}
         isLast={currentSlide === slides.length - 1}
         showNotes={showNotes}
