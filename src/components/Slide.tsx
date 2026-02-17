@@ -19,23 +19,21 @@ interface SlideProps {
   onUpdateSlide: (updated: Partial<SlideData>) => void;
 }
 
-/** SVG icon for the image placeholder */
+/* ── SVG Icons ── */
 const PlaceholderIcon: React.FC = () => (
   <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1} stroke="currentColor">
     <path strokeLinecap="round" strokeLinejoin="round" d="m2.25 15.75 5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 0 1 3.182 0l2.909 2.909M3.75 21h16.5A2.25 2.25 0 0 0 22.5 18.75V5.25A2.25 2.25 0 0 0 20.25 3H3.75A2.25 2.25 0 0 0 1.5 5.25v13.5A2.25 2.25 0 0 0 3.75 21Z" />
   </svg>
 );
 
-/** Camera / upload icon */
 const UploadIcon: React.FC = () => (
-  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" width="20" height="20">
+  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" width="18" height="18">
     <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5m-13.5-9L12 3m0 0 4.5 4.5M12 3v13.5" />
   </svg>
 );
 
-/** Edit / crop icon */
 const EditIcon: React.FC = () => (
-  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" width="18" height="18">
+  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" width="16" height="16">
     <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3.744h-3.5a1.5 1.5 0 0 0-1.5 1.5v3.5m0 6.5v3.5a1.5 1.5 0 0 0 1.5 1.5h3.5m6.5 0h3.5a1.5 1.5 0 0 0 1.5-1.5v-3.5m0-6.5v-3.5a1.5 1.5 0 0 0-1.5-1.5h-3.5" />
   </svg>
 );
@@ -43,17 +41,34 @@ const EditIcon: React.FC = () => (
 const Slide: React.FC<SlideProps> = ({ slide, slideIndex, totalSlides, animationClass, onShowCitations, onUpdateSlide }) => {
   const isImageLeft = slide.layout_hint === 'image-left';
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const addFileInputRef = useRef<HTMLInputElement>(null);
 
-  // ── Image editor state ──
+  // ── Image carousel state ──
+  const [activeImageIndex, setActiveImageIndex] = useState(0);
   const [showEditor, setShowEditor] = useState(false);
-  const imgStyle = slide.imageStyle ?? DEFAULT_IMAGE_STYLE;
   const isDragging = useRef(false);
   const dragStart = useRef({ x: 0, y: 0, ox: 0, oy: 0 });
   const panelRef = useRef<HTMLDivElement>(null);
 
-  const updateImageStyle = useCallback((patch: Partial<ImageStyle>) => {
-    onUpdateSlide({ imageStyle: { ...imgStyle, ...patch } });
-  }, [imgStyle, onUpdateSlide]);
+  // Resolve which images are actual uploaded/linked images
+  const uploadedImages = useMemo(() => {
+    return (slide.image_queries ?? []).filter(q => q.startsWith('data:') || q.startsWith('http'));
+  }, [slide.image_queries]);
+
+  const hasImages = uploadedImages.length > 0;
+  const safeIndex = Math.min(activeImageIndex, Math.max(0, uploadedImages.length - 1));
+  const currentImgSrc = uploadedImages[safeIndex] ?? '';
+
+  // Per-image styles
+  const allImgStyles = slide.imageStyles ?? [];
+  const currentImgStyle: ImageStyle = allImgStyles[safeIndex] ?? slide.imageStyle ?? DEFAULT_IMAGE_STYLE;
+
+  const updateCurrentImageStyle = useCallback((patch: Partial<ImageStyle>) => {
+    const styles = [...allImgStyles];
+    while (styles.length <= safeIndex) styles.push({ ...DEFAULT_IMAGE_STYLE });
+    styles[safeIndex] = { ...styles[safeIndex], ...patch };
+    onUpdateSlide({ imageStyles: styles });
+  }, [allImgStyles, safeIndex, onUpdateSlide]);
 
   const confidenceColor = useMemo(() => {
     switch (slide.evidence_confidence) {
@@ -66,21 +81,77 @@ const Slide: React.FC<SlideProps> = ({ slide, slideIndex, totalSlides, animation
 
   const isCover = slide.slide_id === 'cover';
 
-  // ── Image upload handler ──
+  // ── Upload handler (replace current or first upload) ──
   const handleImageUpload = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file) return;
-    if (!file.type.startsWith('image/')) return;
+    if (!file || !file.type.startsWith('image/')) return;
     const reader = new FileReader();
     reader.onload = () => {
-      onUpdateSlide({
-        image_alt: file.name,
-        image_queries: [reader.result as string],
-        imageStyle: { ...DEFAULT_IMAGE_STYLE },
-      });
+      const dataUrl = reader.result as string;
+      if (!hasImages) {
+        onUpdateSlide({
+          image_alt: file.name,
+          image_queries: [dataUrl],
+          imageStyles: [{ ...DEFAULT_IMAGE_STYLE }],
+        });
+      } else {
+        const updated = [...slide.image_queries];
+        const styles = [...allImgStyles];
+        // Find the real index of the current uploaded image
+        let realIdx = -1;
+        let uploadCount = 0;
+        for (let i = 0; i < updated.length; i++) {
+          if (updated[i].startsWith('data:') || updated[i].startsWith('http')) {
+            if (uploadCount === safeIndex) { realIdx = i; break; }
+            uploadCount++;
+          }
+        }
+        if (realIdx !== -1) {
+          updated[realIdx] = dataUrl;
+        }
+        while (styles.length <= safeIndex) styles.push({ ...DEFAULT_IMAGE_STYLE });
+        styles[safeIndex] = { ...DEFAULT_IMAGE_STYLE };
+        onUpdateSlide({ image_queries: updated, imageStyles: styles });
+      }
     };
     reader.readAsDataURL(file);
-  }, [onUpdateSlide]);
+    e.target.value = '';
+  }, [hasImages, slide.image_queries, allImgStyles, safeIndex, onUpdateSlide]);
+
+  // ── Add additional image ──
+  const handleAddImage = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !file.type.startsWith('image/')) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      const dataUrl = reader.result as string;
+      const updated = [...slide.image_queries, dataUrl];
+      const styles = [...allImgStyles, { ...DEFAULT_IMAGE_STYLE }];
+      onUpdateSlide({ image_queries: updated, imageStyles: styles });
+      const newUploadedCount = updated.filter(q => q.startsWith('data:') || q.startsWith('http')).length;
+      setActiveImageIndex(newUploadedCount - 1);
+    };
+    reader.readAsDataURL(file);
+    e.target.value = '';
+  }, [slide.image_queries, allImgStyles, onUpdateSlide]);
+
+  // ── Remove current image ──
+  const handleRemoveImage = useCallback(() => {
+    if (uploadedImages.length <= 0) return;
+    let realIdx = -1;
+    let uploadCount = 0;
+    for (let i = 0; i < slide.image_queries.length; i++) {
+      if (slide.image_queries[i].startsWith('data:') || slide.image_queries[i].startsWith('http')) {
+        if (uploadCount === safeIndex) { realIdx = i; break; }
+        uploadCount++;
+      }
+    }
+    if (realIdx === -1) return;
+    const updated = slide.image_queries.filter((_, i) => i !== realIdx);
+    const styles = allImgStyles.filter((_, i) => i !== safeIndex);
+    onUpdateSlide({ image_queries: updated, imageStyles: styles });
+    setActiveImageIndex(Math.max(0, safeIndex - 1));
+  }, [uploadedImages, slide.image_queries, allImgStyles, safeIndex, onUpdateSlide]);
 
   // ── Editable handlers ──
   const handleTitleBlur = useCallback((e: React.FocusEvent<HTMLHeadingElement>) => {
@@ -99,41 +170,70 @@ const Slide: React.FC<SlideProps> = ({ slide, slideIndex, totalSlides, animation
     }
   }, [slide.bullets, onUpdateSlide]);
 
+  // ── Bullet management ──
+  const addBullet = useCallback(() => {
+    onUpdateSlide({ bullets: [...slide.bullets, 'New point — click to edit'] });
+  }, [slide.bullets, onUpdateSlide]);
+
+  const removeBullet = useCallback((index: number) => {
+    if (slide.bullets.length <= 1) return;
+    onUpdateSlide({ bullets: slide.bullets.filter((_, i) => i !== index) });
+  }, [slide.bullets, onUpdateSlide]);
+
+  const moveBulletUp = useCallback((index: number) => {
+    if (index === 0) return;
+    const updated = [...slide.bullets];
+    [updated[index - 1], updated[index]] = [updated[index], updated[index - 1]];
+    onUpdateSlide({ bullets: updated });
+  }, [slide.bullets, onUpdateSlide]);
+
+  const moveBulletDown = useCallback((index: number) => {
+    if (index >= slide.bullets.length - 1) return;
+    const updated = [...slide.bullets];
+    [updated[index], updated[index + 1]] = [updated[index + 1], updated[index]];
+    onUpdateSlide({ bullets: updated });
+  }, [slide.bullets, onUpdateSlide]);
+
+  // ── Speaker notes editing ──
+  const handleNotesBlur = useCallback((e: React.FocusEvent<HTMLTextAreaElement>) => {
+    const newNotes = e.currentTarget.value;
+    if (newNotes !== slide.speaker_notes) {
+      onUpdateSlide({ speaker_notes: newNotes });
+    }
+  }, [slide.speaker_notes, onUpdateSlide]);
+
   // ── Drag-to-reposition handlers ──
   const handlePointerDown = useCallback((e: React.PointerEvent) => {
     if (!showEditor) return;
     isDragging.current = true;
-    dragStart.current = { x: e.clientX, y: e.clientY, ox: imgStyle.offsetX, oy: imgStyle.offsetY };
+    dragStart.current = { x: e.clientX, y: e.clientY, ox: currentImgStyle.offsetX, oy: currentImgStyle.offsetY };
     (e.target as HTMLElement).setPointerCapture(e.pointerId);
-  }, [showEditor, imgStyle.offsetX, imgStyle.offsetY]);
+  }, [showEditor, currentImgStyle.offsetX, currentImgStyle.offsetY]);
 
   const handlePointerMove = useCallback((e: React.PointerEvent) => {
     if (!isDragging.current || !panelRef.current) return;
     const rect = panelRef.current.getBoundingClientRect();
     const dx = ((e.clientX - dragStart.current.x) / rect.width) * 100;
     const dy = ((e.clientY - dragStart.current.y) / rect.height) * 100;
-    updateImageStyle({
+    updateCurrentImageStyle({
       offsetX: Math.max(-50, Math.min(50, dragStart.current.ox + dx)),
       offsetY: Math.max(-50, Math.min(50, dragStart.current.oy + dy)),
     });
-  }, [updateImageStyle]);
+  }, [updateCurrentImageStyle]);
 
   const handlePointerUp = useCallback(() => {
     isDragging.current = false;
   }, []);
 
-  // Check if we have an uploaded image (data URL or http URL)
-  const hasImage = slide.image_queries?.[0]?.startsWith('data:') || slide.image_queries?.[0]?.startsWith('http');
-
-  /** Compute inline style for the image */
+  /** Compute inline style for the current image */
   const imageInlineStyle: React.CSSProperties = {
-    objectFit: imgStyle.objectFit,
-    transform: `scale(${imgStyle.scale}) translate(${imgStyle.offsetX}%, ${imgStyle.offsetY}%)`,
+    objectFit: currentImgStyle.objectFit,
+    transform: `scale(${currentImgStyle.scale}) translate(${currentImgStyle.offsetX}%, ${currentImgStyle.offsetY}%)`,
     cursor: showEditor ? 'grab' : 'default',
     transition: isDragging.current ? 'none' : 'transform 0.2s ease',
   };
 
-  /** Render the image panel */
+  /* ─────────────────────── IMAGE PANEL ─────────────────────── */
   const imagePanel = (
     <div
       className="slide-image-panel murphy-image"
@@ -141,21 +241,65 @@ const Slide: React.FC<SlideProps> = ({ slide, slideIndex, totalSlides, animation
       aria-label={slide.image_alt}
       ref={panelRef}
     >
-      {hasImage ? (
-        /* Show uploaded / linked image */
-        <img
-          src={slide.image_queries[0]}
-          alt={slide.image_alt}
-          className="slide-image-display"
-          style={imageInlineStyle}
-          loading="lazy"
-          draggable={false}
-          onPointerDown={handlePointerDown}
-          onPointerMove={handlePointerMove}
-          onPointerUp={handlePointerUp}
-        />
+      {hasImages ? (
+        <>
+          {/* Current image */}
+          <img
+            src={currentImgSrc}
+            alt={slide.image_alt}
+            className="slide-image-display"
+            style={imageInlineStyle}
+            loading="lazy"
+            draggable={false}
+            onPointerDown={handlePointerDown}
+            onPointerMove={handlePointerMove}
+            onPointerUp={handlePointerUp}
+          />
+
+          {/* ── Image counter badge ── */}
+          {uploadedImages.length > 1 && (
+            <div className="image-counter-badge">
+              {safeIndex + 1} / {uploadedImages.length}
+            </div>
+          )}
+
+          {/* ── Carousel navigation arrows ── */}
+          {uploadedImages.length > 1 && (
+            <>
+              <button
+                className="carousel-arrow carousel-arrow-left"
+                onClick={() => setActiveImageIndex(Math.max(0, safeIndex - 1))}
+                disabled={safeIndex === 0}
+                aria-label="Previous image"
+              >
+                ‹
+              </button>
+              <button
+                className="carousel-arrow carousel-arrow-right"
+                onClick={() => setActiveImageIndex(Math.min(uploadedImages.length - 1, safeIndex + 1))}
+                disabled={safeIndex === uploadedImages.length - 1}
+                aria-label="Next image"
+              >
+                ›
+              </button>
+            </>
+          )}
+
+          {/* ── Dot indicators ── */}
+          {uploadedImages.length > 1 && (
+            <div className="carousel-dots">
+              {uploadedImages.map((_, i) => (
+                <button
+                  key={i}
+                  className={`carousel-dot ${i === safeIndex ? 'active' : ''}`}
+                  onClick={() => setActiveImageIndex(i)}
+                  aria-label={`Go to image ${i + 1}`}
+                />
+              ))}
+            </div>
+          )}
+        </>
       ) : (
-        /* Show placeholder with upload prompt */
         <div className="image-placeholder">
           <PlaceholderIcon />
           <span className="text-sm font-medium text-center px-4 opacity-70">
@@ -165,17 +309,16 @@ const Slide: React.FC<SlideProps> = ({ slide, slideIndex, totalSlides, animation
       )}
 
       {/* ── Image Editor Toolbar ── */}
-      {hasImage && showEditor && (
+      {hasImages && showEditor && (
         <div className="image-editor-toolbar" onClick={(e) => e.stopPropagation()}>
-          {/* Fit mode buttons */}
           <div className="editor-row">
             <span className="editor-label">Fit</span>
             <div className="editor-btn-group">
               {(['contain', 'cover', 'fill'] as const).map((mode) => (
                 <button
                   key={mode}
-                  className={`editor-mode-btn ${imgStyle.objectFit === mode ? 'active' : ''}`}
-                  onClick={() => updateImageStyle({ objectFit: mode })}
+                  className={`editor-mode-btn ${currentImgStyle.objectFit === mode ? 'active' : ''}`}
+                  onClick={() => updateCurrentImageStyle({ objectFit: mode })}
                   title={mode}
                 >
                   {mode.charAt(0).toUpperCase() + mode.slice(1)}
@@ -183,8 +326,6 @@ const Slide: React.FC<SlideProps> = ({ slide, slideIndex, totalSlides, animation
               ))}
             </div>
           </div>
-
-          {/* Scale slider */}
           <div className="editor-row">
             <span className="editor-label">Size</span>
             <input
@@ -192,19 +333,17 @@ const Slide: React.FC<SlideProps> = ({ slide, slideIndex, totalSlides, animation
               min="0.3"
               max="3"
               step="0.05"
-              value={imgStyle.scale}
-              onChange={(e) => updateImageStyle({ scale: parseFloat(e.target.value) })}
+              value={currentImgStyle.scale}
+              onChange={(e) => updateCurrentImageStyle({ scale: parseFloat(e.target.value) })}
               className="editor-slider"
             />
-            <span className="editor-value">{Math.round(imgStyle.scale * 100)}%</span>
+            <span className="editor-value">{Math.round(currentImgStyle.scale * 100)}%</span>
           </div>
-
-          {/* Position hint */}
           <div className="editor-row">
             <span className="editor-label-hint">Drag image to reposition</span>
             <button
               className="editor-reset-btn"
-              onClick={() => onUpdateSlide({ imageStyle: { ...DEFAULT_IMAGE_STYLE } })}
+              onClick={() => updateCurrentImageStyle({ ...DEFAULT_IMAGE_STYLE })}
               title="Reset to defaults"
             >
               Reset
@@ -213,29 +352,53 @@ const Slide: React.FC<SlideProps> = ({ slide, slideIndex, totalSlides, animation
         </div>
       )}
 
-      {/* Action buttons overlay */}
+      {/* ── Action buttons ── */}
       <div className="image-action-buttons">
         <button
           className="image-upload-btn"
           onClick={() => fileInputRef.current?.click()}
-          aria-label="Upload image for this slide"
-          title="Upload or change image"
+          aria-label={hasImages ? 'Replace current image' : 'Upload image'}
+          title={hasImages ? 'Replace this image' : 'Upload image'}
         >
           <UploadIcon />
-          <span>{hasImage ? 'Change' : 'Upload'}</span>
+          <span>{hasImages ? 'Replace' : 'Upload'}</span>
         </button>
-        {hasImage && (
-          <button
-            className={`image-edit-btn ${showEditor ? 'active' : ''}`}
-            onClick={() => setShowEditor((v) => !v)}
-            aria-label="Edit image size and crop"
-            title="Edit size & crop"
-          >
-            <EditIcon />
-            <span>{showEditor ? 'Done' : 'Edit'}</span>
-          </button>
+
+        <button
+          className="image-upload-btn"
+          onClick={() => addFileInputRef.current?.click()}
+          aria-label="Add another image"
+          title="Add another image"
+        >
+          <span style={{ fontSize: '16px', lineHeight: 1 }}>+</span>
+          <span>Add</span>
+        </button>
+
+        {hasImages && (
+          <>
+            <button
+              className={`image-edit-btn ${showEditor ? 'active' : ''}`}
+              onClick={() => setShowEditor((v) => !v)}
+              aria-label="Edit image size and crop"
+              title="Edit size & crop"
+            >
+              <EditIcon />
+              <span>{showEditor ? 'Done' : 'Edit'}</span>
+            </button>
+            <button
+              className="image-edit-btn image-remove-btn"
+              onClick={handleRemoveImage}
+              aria-label="Remove this image"
+              title="Remove this image"
+            >
+              <span style={{ fontSize: '14px', lineHeight: 1 }}>✕</span>
+              <span>Remove</span>
+            </button>
+          </>
         )}
       </div>
+
+      {/* Hidden file inputs */}
       <input
         ref={fileInputRef}
         type="file"
@@ -244,10 +407,18 @@ const Slide: React.FC<SlideProps> = ({ slide, slideIndex, totalSlides, animation
         onChange={handleImageUpload}
         aria-hidden="true"
       />
+      <input
+        ref={addFileInputRef}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={handleAddImage}
+        aria-hidden="true"
+      />
     </div>
   );
 
-  /** Render the text panel */
+  /* ─────────────────────── TEXT PANEL ─────────────────────── */
   const textPanel = (
     <div className="slide-text-panel murphy-text">
       {/* ── Institutional Header ── */}
@@ -283,16 +454,43 @@ const Slide: React.FC<SlideProps> = ({ slide, slideIndex, totalSlides, animation
       {/* Green accent bar */}
       <div className="w-16 h-1 bg-primary-500 rounded mb-5" />
 
-      {/* Editable Bullets */}
-      <ul className="space-y-3 mb-6">
+      {/* Editable Bullets with management controls */}
+      <ul className="space-y-2 mb-4">
         {slide.bullets.map((bullet, i) => {
-          // Detect if bullet contains a URL and render it as a clickable link
           const urlMatch = bullet.match(/(https?:\/\/[^\s]+)/);
           return (
-            <li key={i} className="murphy-bullet flex items-start gap-2.5 text-neutral-700 text-base leading-relaxed">
+            <li key={i} className="murphy-bullet bullet-editable-row">
+              {/* Bullet controls (left) */}
+              <div className="bullet-controls">
+                <button
+                  className="bullet-ctrl-btn"
+                  onClick={() => moveBulletUp(i)}
+                  disabled={i === 0}
+                  title="Move up"
+                  aria-label="Move bullet up"
+                >▲</button>
+                <button
+                  className="bullet-ctrl-btn"
+                  onClick={() => moveBulletDown(i)}
+                  disabled={i === slide.bullets.length - 1}
+                  title="Move down"
+                  aria-label="Move bullet down"
+                >▼</button>
+                <button
+                  className="bullet-ctrl-btn bullet-ctrl-remove"
+                  onClick={() => removeBullet(i)}
+                  disabled={slide.bullets.length <= 1}
+                  title="Remove bullet"
+                  aria-label="Remove bullet"
+                >✕</button>
+              </div>
+
+              {/* Bullet dot */}
               <span className="mt-1.5 flex-shrink-0 w-2 h-2 rounded-full bg-primary-400" />
+
+              {/* Bullet text */}
               {urlMatch ? (
-                <span className="flex-1">
+                <span className="flex-1 text-neutral-700 text-base leading-relaxed">
                   {bullet.slice(0, urlMatch.index)}
                   <a
                     href={urlMatch[1]}
@@ -310,7 +508,7 @@ const Slide: React.FC<SlideProps> = ({ slide, slideIndex, totalSlides, animation
                   suppressContentEditableWarning
                   onBlur={(e) => handleBulletBlur(i, e)}
                   spellCheck={false}
-                  className="editable-field flex-1 outline-none"
+                  className="editable-field flex-1 outline-none text-neutral-700 text-base leading-relaxed"
                   role="textbox"
                   aria-label={`Bullet point ${i + 1} — click to edit`}
                 >
@@ -321,6 +519,28 @@ const Slide: React.FC<SlideProps> = ({ slide, slideIndex, totalSlides, animation
           );
         })}
       </ul>
+
+      {/* Add bullet button */}
+      <button
+        className="add-bullet-btn"
+        onClick={addBullet}
+        title="Add a new bullet point"
+        aria-label="Add bullet point"
+      >
+        + Add bullet
+      </button>
+
+      {/* Inline speaker notes editor */}
+      <details className="slide-notes-editor">
+        <summary className="notes-summary">Speaker Notes</summary>
+        <textarea
+          className="notes-textarea"
+          defaultValue={slide.speaker_notes}
+          onBlur={handleNotesBlur}
+          placeholder="Enter speaker notes..."
+          rows={3}
+        />
+      </details>
 
       {/* Citation badge */}
       {slide.citations.length > 0 && (
@@ -334,12 +554,12 @@ const Slide: React.FC<SlideProps> = ({ slide, slideIndex, totalSlides, animation
         </button>
       )}
 
-      {/* Slide number (bottom-left of text panel) */}
+      {/* Slide number */}
       <div className="absolute bottom-4 left-8 text-xs text-neutral-400 font-medium">
         {slideIndex + 1} / {totalSlides}
       </div>
 
-      {/* UNTH Logo Watermark — lower-right corner */}
+      {/* UNTH Logo Watermark */}
       <img
         src="/logo-unth.png"
         alt="UNTH Logo"
@@ -370,7 +590,6 @@ const Slide: React.FC<SlideProps> = ({ slide, slideIndex, totalSlides, animation
         </>
       )}
 
-      {/* ── UNTH Logo Watermark (lower-right) ── */}
       <img
         src="/logo-unth.png"
         alt=""

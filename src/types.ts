@@ -36,6 +36,7 @@ export interface SlideData {
   exportable_graphics: boolean;
   image_alt: string;
   imageStyle?: ImageStyle;
+  imageStyles?: ImageStyle[];   // per-image style for multi-image galleries
   link?: string;
   last_updated?: string;
   reviewed_by?: string;

@@ -708,3 +708,215 @@ html, body, #root {
   border-radius: 50%;
   display: inline-block;
 }
+
+/* =============================================================
+   Image Carousel
+   ============================================================= */
+.image-counter-badge {
+  position: absolute;
+  top: 0.75rem;
+  right: 0.75rem;
+  z-index: 12;
+  background: rgba(0,0,0,0.55);
+  color: white;
+  font-size: 0.7rem;
+  font-weight: 700;
+  padding: 0.2rem 0.6rem;
+  border-radius: 9999px;
+  backdrop-filter: blur(4px);
+}
+
+.carousel-arrow {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 12;
+  background: rgba(255,255,255,0.85);
+  border: 1px solid rgba(0,0,0,0.1);
+  border-radius: 50%;
+  width: 2.2rem;
+  height: 2.2rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: var(--color-neutral-700);
+  cursor: pointer;
+  transition: all 0.2s;
+  box-shadow: 0 2px 8px rgba(0,0,0,.12);
+  opacity: 0;
+}
+
+.slide-image-panel:hover .carousel-arrow {
+  opacity: 1;
+}
+
+.carousel-arrow:hover {
+  background: var(--color-primary-500);
+  color: white;
+}
+
+.carousel-arrow:disabled {
+  opacity: 0.3 !important;
+  cursor: default;
+}
+
+.carousel-arrow-left { left: 0.5rem; }
+.carousel-arrow-right { right: 0.5rem; }
+
+.carousel-dots {
+  position: absolute;
+  bottom: 3.5rem;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 12;
+  display: flex;
+  gap: 0.35rem;
+}
+
+.carousel-dot {
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 50%;
+  border: 1.5px solid white;
+  background: rgba(255, 255, 255, 0.4);
+  cursor: pointer;
+  transition: all 0.2s;
+  box-shadow: 0 1px 3px rgba(0,0,0,.2);
+  padding: 0;
+}
+
+.carousel-dot.active {
+  background: var(--color-primary-500);
+  border-color: var(--color-primary-500);
+  transform: scale(1.3);
+}
+
+.image-remove-btn {
+  color: #e03131 !important;
+}
+.image-remove-btn:hover {
+  background: #e03131 !important;
+  color: white !important;
+  border-color: #e03131 !important;
+}
+
+/* =============================================================
+   Bullet Editing Controls
+   ============================================================= */
+.bullet-editable-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  position: relative;
+}
+
+.bullet-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  opacity: 0;
+  transition: opacity 0.2s;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.bullet-editable-row:hover .bullet-controls {
+  opacity: 1;
+}
+
+.bullet-ctrl-btn {
+  background: none;
+  border: 1px solid var(--color-neutral-200);
+  border-radius: 3px;
+  width: 1.2rem;
+  height: 1.2rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.5rem;
+  color: var(--color-neutral-400);
+  cursor: pointer;
+  transition: all 0.15s;
+  padding: 0;
+  line-height: 1;
+}
+
+.bullet-ctrl-btn:hover:not(:disabled) {
+  background: var(--color-primary-100);
+  color: var(--color-primary-600);
+  border-color: var(--color-primary-300);
+}
+
+.bullet-ctrl-btn:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+
+.bullet-ctrl-remove:hover:not(:disabled) {
+  background: #fee2e2;
+  color: #dc2626;
+  border-color: #fca5a5;
+}
+
+.add-bullet-btn {
+  background: none;
+  border: 1px dashed var(--color-neutral-300);
+  border-radius: 0.4rem;
+  padding: 0.35rem 0.8rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--color-primary-500);
+  cursor: pointer;
+  transition: all 0.2s;
+  margin-bottom: 0.75rem;
+}
+
+.add-bullet-btn:hover {
+  background: var(--color-primary-50);
+  border-color: var(--color-primary-400);
+  color: var(--color-primary-700);
+}
+
+/* =============================================================
+   Inline Speaker Notes Editor
+   ============================================================= */
+.slide-notes-editor {
+  margin-bottom: 0.75rem;
+}
+
+.notes-summary {
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--color-neutral-400);
+  cursor: pointer;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  user-select: none;
+  padding: 0.25rem 0;
+}
+
+.notes-summary:hover {
+  color: var(--color-primary-500);
+}
+
+.notes-textarea {
+  width: 100%;
+  margin-top: 0.4rem;
+  padding: 0.5rem;
+  font-size: 0.8rem;
+  border: 1px solid var(--color-neutral-200);
+  border-radius: 0.4rem;
+  resize: vertical;
+  font-family: inherit;
+  color: var(--color-neutral-700);
+  line-height: 1.5;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.notes-textarea:focus {
+  border-color: var(--color-primary-400);
+  box-shadow: 0 0 0 3px rgba(11, 138, 62, 0.1);
+}

@@ -9,10 +9,14 @@ interface ControlsProps {
   onExportPDF: () => void;
   onRefreshEvidence: () => void;
   onShowQuiz: () => void;
+  onAddSlide: () => void;
+  onDuplicateSlide: () => void;
+  onDeleteSlide: () => void;
   autoplay: boolean;
   isFirst: boolean;
   isLast: boolean;
   showNotes: boolean;
+  canDelete: boolean;
 }
 
 const Controls: React.FC<ControlsProps> = ({
@@ -24,10 +28,14 @@ const Controls: React.FC<ControlsProps> = ({
   onExportPDF,
   onRefreshEvidence,
   onShowQuiz,
+  onAddSlide,
+  onDuplicateSlide,
+  onDeleteSlide,
   autoplay,
   isFirst,
   isLast,
   showNotes,
+  canDelete,
 }) => {
   return (
     <>
@@ -134,6 +142,45 @@ const Controls: React.FC<ControlsProps> = ({
       >
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
           <path d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+        </svg>
+      </button>
+
+      {/* ── Divider ── */}
+      <div style={{ width: 1, height: 20, background: 'rgba(0,0,0,0.15)', margin: '0 2px' }} />
+
+      {/* Add Slide */}
+      <button
+        onClick={onAddSlide}
+        aria-label="Add new slide"
+        title="Add new slide"
+      >
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <path d="M12 5v14m-7-7h14" />
+        </svg>
+      </button>
+
+      {/* Duplicate Slide */}
+      <button
+        onClick={onDuplicateSlide}
+        aria-label="Duplicate current slide"
+        title="Duplicate slide"
+      >
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <rect x="9" y="9" width="13" height="13" rx="2" />
+          <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" />
+        </svg>
+      </button>
+
+      {/* Delete Slide */}
+      <button
+        onClick={onDeleteSlide}
+        aria-label="Delete current slide"
+        title="Delete slide"
+        disabled={!canDelete}
+        style={{ opacity: canDelete ? 1 : 0.3, color: canDelete ? '#e03131' : undefined }}
+      >
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
         </svg>
       </button>
     </div>

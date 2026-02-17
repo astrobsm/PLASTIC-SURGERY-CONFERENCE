@@ -29,7 +29,7 @@ function App() {
   slideRef.current = currentSlide;
 
   // ── Content version (bump when slide data changes) ──
-  const CONTENT_VERSION = 'v2';
+  const CONTENT_VERSION = 'v3';
 
   // ── Load cached slides on mount ──
   useEffect(() => {
@@ -186,6 +186,51 @@ function App() {
     });
   }, []);
 
+  // ── Add a new blank slide after current ──
+  const handleAddSlide = useCallback(() => {
+    const newSlide: SlideData = {
+      slide_id: `slide_${Date.now()}`,
+      title: 'New Slide — Click to Edit',
+      layout_hint: 'image-right',
+      image_queries: [],
+      bullets: ['Click to add your first point'],
+      speaker_notes: '',
+      citations_query: '',
+      citations: [],
+      evidence_confidence: 'medium',
+      exportable_graphics: false,
+      image_alt: 'Slide image',
+    };
+    setSlides((prev) => {
+      const copy = [...prev];
+      copy.splice(currentSlide + 1, 0, newSlide);
+      return copy;
+    });
+    // Navigate to the new slide
+    setTimeout(() => goTo(currentSlide + 1, 'next'), 50);
+  }, [currentSlide, goTo]);
+
+  // ── Duplicate current slide ──
+  const handleDuplicateSlide = useCallback(() => {
+    setSlides((prev) => {
+      const copy = [...prev];
+      const dup = { ...copy[currentSlide], slide_id: `slide_${Date.now()}` };
+      copy.splice(currentSlide + 1, 0, dup);
+      return copy;
+    });
+    setTimeout(() => goTo(currentSlide + 1, 'next'), 50);
+  }, [currentSlide, goTo]);
+
+  // ── Delete current slide ──
+  const handleDeleteSlide = useCallback(() => {
+    if (slides.length <= 1) return;
+    setSlides((prev) => {
+      const copy = prev.filter((_, i) => i !== currentSlide);
+      return copy;
+    });
+    setCurrentSlide((prev) => Math.min(prev, slides.length - 2));
+  }, [currentSlide, slides.length]);
+
   // ── Export PDF ──
   const handleExportPDF = useCallback(() => {
     exportToPDF(slides, true);
@@ -234,10 +279,14 @@ function App() {
         onExportPDF={handleExportPDF}
         onRefreshEvidence={refreshEvidence}
         onShowQuiz={() => setShowQuiz(true)}
+        onAddSlide={handleAddSlide}
+        onDuplicateSlide={handleDuplicateSlide}
+        onDeleteSlide={handleDeleteSlide}
         autoplay={autoplay}
         isFirst={currentSlide === 0}
         isLast={currentSlide === slides.length - 1}
         showNotes={showNotes}
+        canDelete={slides.length > 1}
       />
 
       {/* Jump panel */}
