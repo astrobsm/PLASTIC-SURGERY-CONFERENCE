@@ -51,7 +51,7 @@ function App() {
   slideRef.current = currentSlide;
 
   // ── Content version (bump when slide data changes) ──
-  const CONTENT_VERSION = 'v4';
+  const CONTENT_VERSION = 'v5';
 
   // ── Load cached slides on mount ──
   useEffect(() => {

@@ -20,12 +20,6 @@ interface SlideProps {
 }
 
 /* ── SVG Icons ── */
-const PlaceholderIcon: React.FC = () => (
-  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1} stroke="currentColor">
-    <path strokeLinecap="round" strokeLinejoin="round" d="m2.25 15.75 5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 0 1 3.182 0l2.909 2.909M3.75 21h16.5A2.25 2.25 0 0 0 22.5 18.75V5.25A2.25 2.25 0 0 0 20.25 3H3.75A2.25 2.25 0 0 0 1.5 5.25v13.5A2.25 2.25 0 0 0 3.75 21Z" />
-  </svg>
-);
-
 const UploadIcon: React.FC = () => (
   <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" width="18" height="18">
     <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5m-13.5-9L12 3m0 0 4.5 4.5M12 3v13.5" />
@@ -39,7 +33,6 @@ const EditIcon: React.FC = () => (
 );
 
 const Slide: React.FC<SlideProps> = ({ slide, slideIndex, totalSlides, animationClass, onShowCitations, onUpdateSlide }) => {
-  const isImageLeft = slide.layout_hint === 'image-left';
   const fileInputRef = useRef<HTMLInputElement>(null);
   const addFileInputRef = useRef<HTMLInputElement>(null);
 
@@ -233,83 +226,72 @@ const Slide: React.FC<SlideProps> = ({ slide, slideIndex, totalSlides, animation
     transition: isDragging.current ? 'none' : 'transform 0.2s ease',
   };
 
-  /* ─────────────────────── IMAGE PANEL ─────────────────────── */
-  const imagePanel = (
+  /* ─────────────────────── IMAGE PANEL (only rendered when images exist) ─────────────────────── */
+  const imagePanel = hasImages ? (
     <div
       className="slide-image-panel murphy-image"
       role="img"
       aria-label={slide.image_alt}
       ref={panelRef}
     >
-      {hasImages ? (
+      {/* Current image */}
+      <img
+        src={currentImgSrc}
+        alt={slide.image_alt}
+        className="slide-image-display"
+        style={imageInlineStyle}
+        loading="lazy"
+        draggable={false}
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={handlePointerUp}
+      />
+
+      {/* ── Image counter badge ── */}
+      {uploadedImages.length > 1 && (
+        <div className="image-counter-badge">
+          {safeIndex + 1} / {uploadedImages.length}
+        </div>
+      )}
+
+      {/* ── Carousel navigation arrows ── */}
+      {uploadedImages.length > 1 && (
         <>
-          {/* Current image */}
-          <img
-            src={currentImgSrc}
-            alt={slide.image_alt}
-            className="slide-image-display"
-            style={imageInlineStyle}
-            loading="lazy"
-            draggable={false}
-            onPointerDown={handlePointerDown}
-            onPointerMove={handlePointerMove}
-            onPointerUp={handlePointerUp}
-          />
-
-          {/* ── Image counter badge ── */}
-          {uploadedImages.length > 1 && (
-            <div className="image-counter-badge">
-              {safeIndex + 1} / {uploadedImages.length}
-            </div>
-          )}
-
-          {/* ── Carousel navigation arrows ── */}
-          {uploadedImages.length > 1 && (
-            <>
-              <button
-                className="carousel-arrow carousel-arrow-left"
-                onClick={() => setActiveImageIndex(Math.max(0, safeIndex - 1))}
-                disabled={safeIndex === 0}
-                aria-label="Previous image"
-              >
-                ‹
-              </button>
-              <button
-                className="carousel-arrow carousel-arrow-right"
-                onClick={() => setActiveImageIndex(Math.min(uploadedImages.length - 1, safeIndex + 1))}
-                disabled={safeIndex === uploadedImages.length - 1}
-                aria-label="Next image"
-              >
-                ›
-              </button>
-            </>
-          )}
-
-          {/* ── Dot indicators ── */}
-          {uploadedImages.length > 1 && (
-            <div className="carousel-dots">
-              {uploadedImages.map((_, i) => (
-                <button
-                  key={i}
-                  className={`carousel-dot ${i === safeIndex ? 'active' : ''}`}
-                  onClick={() => setActiveImageIndex(i)}
-                  aria-label={`Go to image ${i + 1}`}
-                />
-              ))}
-            </div>
-          )}
+          <button
+            className="carousel-arrow carousel-arrow-left"
+            onClick={() => setActiveImageIndex(Math.max(0, safeIndex - 1))}
+            disabled={safeIndex === 0}
+            aria-label="Previous image"
+          >
+            ‹
+          </button>
+          <button
+            className="carousel-arrow carousel-arrow-right"
+            onClick={() => setActiveImageIndex(Math.min(uploadedImages.length - 1, safeIndex + 1))}
+            disabled={safeIndex === uploadedImages.length - 1}
+            aria-label="Next image"
+          >
+            ›
+          </button>
         </>
-      ) : (
-        <div className="image-placeholder">
-          <PlaceholderIcon />
-          <span className="text-sm font-medium text-center px-4 opacity-70">
-            {slide.image_queries?.[0] ?? 'Clinical Image'}
-          </span>
+      )}
+
+      {/* ── Dot indicators ── */}
+      {uploadedImages.length > 1 && (
+        <div className="carousel-dots">
+          {uploadedImages.map((_, i) => (
+            <button
+              key={i}
+              className={`carousel-dot ${i === safeIndex ? 'active' : ''}`}
+              onClick={() => setActiveImageIndex(i)}
+              aria-label={`Go to image ${i + 1}`}
+            />
+          ))}
         </div>
       )}
 
       {/* ── Image Editor Toolbar ── */}
-      {hasImages && showEditor && (
+      {showEditor && (
         <div className="image-editor-toolbar" onClick={(e) => e.stopPropagation()}>
           <div className="editor-row">
             <span className="editor-label">Fit</span>
@@ -352,16 +334,16 @@ const Slide: React.FC<SlideProps> = ({ slide, slideIndex, totalSlides, animation
         </div>
       )}
 
-      {/* ── Action buttons ── */}
+      {/* ── Action buttons on image panel ── */}
       <div className="image-action-buttons">
         <button
           className="image-upload-btn"
           onClick={() => fileInputRef.current?.click()}
-          aria-label={hasImages ? 'Replace current image' : 'Upload image'}
-          title={hasImages ? 'Replace this image' : 'Upload image'}
+          aria-label="Replace current image"
+          title="Replace this image"
         >
           <UploadIcon />
-          <span>{hasImages ? 'Replace' : 'Upload'}</span>
+          <span>Replace</span>
         </button>
 
         <button
@@ -374,28 +356,24 @@ const Slide: React.FC<SlideProps> = ({ slide, slideIndex, totalSlides, animation
           <span>Add</span>
         </button>
 
-        {hasImages && (
-          <>
-            <button
-              className={`image-edit-btn ${showEditor ? 'active' : ''}`}
-              onClick={() => setShowEditor((v) => !v)}
-              aria-label="Edit image size and crop"
-              title="Edit size & crop"
-            >
-              <EditIcon />
-              <span>{showEditor ? 'Done' : 'Edit'}</span>
-            </button>
-            <button
-              className="image-edit-btn image-remove-btn"
-              onClick={handleRemoveImage}
-              aria-label="Remove this image"
-              title="Remove this image"
-            >
-              <span style={{ fontSize: '14px', lineHeight: 1 }}>✕</span>
-              <span>Remove</span>
-            </button>
-          </>
-        )}
+        <button
+          className={`image-edit-btn ${showEditor ? 'active' : ''}`}
+          onClick={() => setShowEditor((v) => !v)}
+          aria-label="Edit image size and crop"
+          title="Edit size & crop"
+        >
+          <EditIcon />
+          <span>{showEditor ? 'Done' : 'Edit'}</span>
+        </button>
+        <button
+          className="image-edit-btn image-remove-btn"
+          onClick={handleRemoveImage}
+          aria-label="Remove this image"
+          title="Remove this image"
+        >
+          <span style={{ fontSize: '14px', lineHeight: 1 }}>✕</span>
+          <span>Remove</span>
+        </button>
       </div>
 
       {/* Hidden file inputs */}
@@ -416,7 +394,7 @@ const Slide: React.FC<SlideProps> = ({ slide, slideIndex, totalSlides, animation
         aria-hidden="true"
       />
     </div>
-  );
+  ) : null;
 
   /* ─────────────────────── TEXT PANEL ─────────────────────── */
   const textPanel = (
@@ -530,6 +508,28 @@ const Slide: React.FC<SlideProps> = ({ slide, slideIndex, totalSlides, animation
         + Add bullet
       </button>
 
+      {/* ── Add Image button (shown when no images on slide) ── */}
+      {!hasImages && (
+        <>
+          <button
+            className="add-image-inline-btn"
+            onClick={() => fileInputRef.current?.click()}
+            title="Add an image to this slide"
+            aria-label="Add image to slide"
+          >
+            <UploadIcon /> Add Image
+          </button>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={handleImageUpload}
+            aria-hidden="true"
+          />
+        </>
+      )}
+
       {/* Inline speaker notes editor */}
       <details className="slide-notes-editor">
         <summary className="notes-summary">Speaker Notes</summary>
@@ -572,22 +572,19 @@ const Slide: React.FC<SlideProps> = ({ slide, slideIndex, totalSlides, animation
 
   return (
     <div
-      className={`slide-grid ${animationClass}`}
+      className={`slide-grid ${hasImages ? 'has-image' : 'text-only'} ${animationClass}`}
       style={{ position: 'relative' }}
       role="region"
       aria-roledescription="slide"
       aria-label={`Slide ${slideIndex + 1} of ${totalSlides}: ${slide.title}`}
     >
-      {isImageLeft ? (
+      {hasImages ? (
         <>
-          {imagePanel}
           {textPanel}
+          {imagePanel}
         </>
       ) : (
-        <>
-          {textPanel}
-          {imagePanel}
-        </>
+        textPanel
       )}
 
       <img

@@ -119,15 +119,28 @@ html, body, #root {
 /* ===== Slide Layout ===== */
 .slide-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
   height: 100vh;
   overflow: hidden;
+  transition: grid-template-columns 0.4s ease;
+}
+
+/* Text-only: single column full width */
+.slide-grid.text-only {
+  grid-template-columns: 1fr;
+}
+
+/* Has image: text 2/3, image 1/3 */
+.slide-grid.has-image {
+  grid-template-columns: 2fr 1fr;
 }
 
 @media (max-width: 768px) {
-  .slide-grid {
+  .slide-grid.text-only {
     grid-template-columns: 1fr;
-    grid-template-rows: 40vh 1fr;
+  }
+  .slide-grid.has-image {
+    grid-template-columns: 1fr;
+    grid-template-rows: 1fr 35vh;
   }
 }
 
@@ -883,6 +896,31 @@ html, body, #root {
 .add-bullet-btn:hover {
   background: var(--color-primary-50);
   border-color: var(--color-primary-400);
+  color: var(--color-primary-700);
+}
+
+/* =============================================================
+   Add Image Inline Button (text-only slides)
+   ============================================================= */
+.add-image-inline-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1.2rem;
+  background: var(--color-primary-50);
+  border: 1.5px dashed var(--color-primary-400);
+  border-radius: 0.5rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--color-primary-600);
+  cursor: pointer;
+  transition: all 0.2s;
+  margin-bottom: 0.75rem;
+}
+
+.add-image-inline-btn:hover {
+  background: var(--color-primary-100);
+  border-color: var(--color-primary-600);
   color: var(--color-primary-700);
 }
 
