@@ -1018,9 +1018,11 @@ html, body, #root {
   to { opacity: 1; }
 }
 
-/* ── Hide Add Image / Add Bullet buttons in fullscreen ── */
+/* ── Hide Add Image / Add Bullet / Speaker Notes in fullscreen ── */
 :fullscreen .add-image-inline-btn,
 :fullscreen .image-action-buttons .image-upload-btn[aria-label="Add another image"],
-:fullscreen .add-bullet-btn {
+:fullscreen .add-bullet-btn,
+:fullscreen .slide-notes-editor,
+:fullscreen .speaker-notes {
   display: none !important;
 }
