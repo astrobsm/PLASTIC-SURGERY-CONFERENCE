@@ -1017,3 +1017,9 @@ html, body, #root {
 @keyframes fade-in-exit-btn {
   to { opacity: 1; }
 }
+
+/* ── Hide Add Image buttons in fullscreen ── */
+:fullscreen .add-image-inline-btn,
+:fullscreen .image-action-buttons .image-upload-btn[aria-label="Add another image"] {
+  display: none !important;
+}
