@@ -75,6 +75,22 @@ function App() {
     })();
   }, []);
 
+  // ── Auto-save slides to IndexedDB whenever they change ──
+  const hasMounted = useRef(false);
+  useEffect(() => {
+    // Skip the very first render (initial load)
+    if (!hasMounted.current) {
+      hasMounted.current = true;
+      return;
+    }
+    const timer = setTimeout(() => {
+      cacheSlides(slides).then(() => {
+        setLastUpdated(new Date().toISOString());
+      }).catch((err) => console.error('Auto-save failed:', err));
+    }, 500); // debounce 500ms
+    return () => clearTimeout(timer);
+  }, [slides]);
+
   // ── Navigation ──
   const goTo = useCallback((index: number, direction: 'next' | 'prev' = 'next') => {
     if (index < 0 || index >= slides.length) return;
