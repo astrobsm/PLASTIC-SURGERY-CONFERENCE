@@ -9,7 +9,7 @@ export default defineConfig({
     tailwindcss(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['favicon.svg', 'icon-192.png', 'icon-512.png'],
+      includeAssets: ['favicon.svg', 'icon-192.png', 'icon-512.png', 'logo-unth.png'],
       manifest: {
         name: 'DFU: Myths, Pathophysiology & Management',
         short_name: 'DFU Presentation',
@@ -25,26 +25,25 @@ export default defineConfig({
         ],
       },
       workbox: {
+        navigateFallback: 'index.html',
         runtimeCaching: [
           {
             urlPattern: /^https:\/\/eutils\.ncbi\.nlm\.nih\.gov\//,
-            handler: 'StaleWhileRevalidate',
-            options: { cacheName: 'pubmed-cache', expiration: { maxEntries: 100, maxAgeSeconds: 86400 * 7 } },
+            handler: 'NetworkFirst',
+            options: {
+              cacheName: 'pubmed-cache',
+              expiration: { maxEntries: 100, maxAgeSeconds: 86400 * 7 },
+              networkTimeoutSeconds: 5,
+            },
           },
           {
             urlPattern: /^https:\/\/api\.crossref\.org\//,
-            handler: 'StaleWhileRevalidate',
-            options: { cacheName: 'crossref-cache', expiration: { maxEntries: 100, maxAgeSeconds: 86400 * 7 } },
-          },
-          {
-            urlPattern: /^https:\/\/fonts\.googleapis\.com\//,
-            handler: 'CacheFirst',
-            options: { cacheName: 'google-fonts-stylesheets' },
-          },
-          {
-            urlPattern: /^https:\/\/fonts\.gstatic\.com\//,
-            handler: 'CacheFirst',
-            options: { cacheName: 'google-fonts-webfonts', expiration: { maxEntries: 30, maxAgeSeconds: 86400 * 365 } },
+            handler: 'NetworkFirst',
+            options: {
+              cacheName: 'crossref-cache',
+              expiration: { maxEntries: 100, maxAgeSeconds: 86400 * 7 },
+              networkTimeoutSeconds: 5,
+            },
           },
         ],
       },

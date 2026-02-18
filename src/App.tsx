@@ -45,6 +45,7 @@ function App() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const autoplayRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [isOnline, setIsOnline] = useState(navigator.onLine);
   const slideRef = useRef<number>(currentSlide);
 
   // Keep ref in sync
@@ -119,6 +120,18 @@ function App() {
     const onFsChange = () => setIsFullscreen(!!document.fullscreenElement);
     document.addEventListener('fullscreenchange', onFsChange);
     return () => document.removeEventListener('fullscreenchange', onFsChange);
+  }, []);
+
+  // ── Online / Offline detection ──
+  useEffect(() => {
+    const goOnline = () => setIsOnline(true);
+    const goOffline = () => setIsOnline(false);
+    window.addEventListener('online', goOnline);
+    window.addEventListener('offline', goOffline);
+    return () => {
+      window.removeEventListener('online', goOnline);
+      window.removeEventListener('offline', goOffline);
+    };
   }, []);
 
   // ── Keyboard navigation ──
@@ -301,6 +314,13 @@ function App() {
     <div className="slide-container">
       {/* Progress bar */}
       <div className="slide-progress" style={{ width: `${progress}%` }} role="progressbar" aria-valuenow={progress} aria-valuemin={0} aria-valuemax={100} />
+
+      {/* Offline banner */}
+      {!isOnline && (
+        <div className="offline-banner" role="status" aria-live="polite">
+          ⚡ Offline — all features available locally
+        </div>
+      )}
 
       {/* Slide counter + last updated */}
       <div className="slide-counter">
